@@ -1,15 +1,13 @@
-# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
-
-client_id = "37d8ba13e93020bf2c682c37151c6510"
+client_id = "37d8ba13e93020bf2c682c37151c6510"  # Keep your new one
 name = "MetaObjectPaginator"
-application_url = "https://example.com"
+application_url = "https://meta-object-paginator.vercel.app"  # Update post-deploy (e.g., meta-object-paginator-new.vercel.app)
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
 
 [webhooks]
-api_version = "2026-01"
+api_version = "2025-10"  # Match server.js API_VERSION
 
   [[webhooks.subscriptions]]
   topics = [ "app/uninstalled" ]
@@ -20,8 +18,7 @@ api_version = "2026-01"
   uri = "/webhooks/app/scopes_update"
 
 [access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+scopes = "read_metaobjects,read_products,read_files,write_app_proxy"  # Add these for COA fetch/proxy
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://meta-object-paginator.vercel.app/auth/callback" ]  # Match server.js route
