@@ -1,12 +1,10 @@
 {
   "version": 2,
+  "outputDirectory": ".",
   "builds": [
     {
       "src": "server.js",
-      "use": "@vercel/node",
-      "config": {
-        "installCommand": "npm install --platform=linux --arch=x64"
-      }
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -17,12 +15,8 @@
   ],
   "functions": {
     "server.js": {
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs18.x",
       "maxDuration": 30
     }
-  },
-  "env": {
-    "NODE_ENV": "production",
-    "PRISMA_GENERATE_SKIP_AUTOINSTALL": "true"
   }
 }
