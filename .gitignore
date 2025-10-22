@@ -12,7 +12,8 @@ database.sqlite
 
 .env
 .env.*
-
+.env.development.local
+.env.development.local*
 
 
 
