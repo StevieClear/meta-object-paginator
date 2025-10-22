@@ -11,17 +11,24 @@ datasource db {
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  shop         String   @unique
-  state        String?
-  isOnline     Boolean  @default(false)
-  scope        String?
-  expires      DateTime?
-  accessToken  String
-  userId       BigInt?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(cuid())
+  shop           String   @unique
+  state          String?
+  isOnline       Boolean  @default(false)
+  scope          String?
+  expires        DateTime?
+  accessToken    String
+  userId         BigInt?
+  // Added user profile fields (required by Shopify for admin sessions)
+  firstName      String?
+  lastName       String?
+  email          String?
+  accountOwner   Boolean  @default(false)
+  locale         String?
+  collaborator   Boolean  @default(false)
+  emailVerified  Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
   @@map("sessions")
 }
-
 // Add other models here later (e.g., for custom data)
