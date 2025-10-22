@@ -2,6 +2,11 @@
   "version": 2,
   "builds": [
     {
+      "src": "package.json",
+      "use": "@vercel/node",
+      "config": { "buildCommand": "npx prisma generate && echo 'Build complete (skipped React)'" }
+    },
+    {
       "src": "server.js",
       "use": "@vercel/node"
     }
@@ -9,12 +14,16 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "server.js"
+      "dest": "/server.js"
     }
   ],
   "functions": {
     "server.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
     }
+  },
+  "env": {
+    "NODE_ENV": "production"
   }
 }
