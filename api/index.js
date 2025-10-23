@@ -1,36 +1,38 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import cors from 'cors';
-import crypto from 'crypto';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';  // Add this import
-import { Shopify } from '@shopify/shopify-api';  // Add; install if missing: npm i @shopify/shopify-api@^11.0.0
-import { sessionStorage } from '@shopify/shopify-app-session-storage-prisma';  // Add
+import { PrismaClient } from '@prisma/client';
+import { shopifyApi, ApiVersion } from '@shopify/shopify-api';
+import { PrismaSessionStorage } from '@shopify/shopify-app-session-storage-prisma';  // v12 named import
+import '@shopify/shopify-api/adapters/node';  // v12 side-effect import for Node adapter
 
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();  // Prisma instance
+const prisma = new PrismaClient();
 
-// Configure Shopify API (public app)
-const shopify = Shopify.Context.initialize({
-  API_KEY: process.env.SHOPIFY_API_KEY,
-  API_SECRET_KEY: process.env.SHOPIFY_API_SECRET,
-  SCOPES: process.env.SHOPIFY_SCOPES?.split(',') || ['read_metaobjects', 'read_products', 'read_files', 'write_app_proxy'],
-  HOST_NAME: process.env.HOST_NAME || 'meta-object-paginator.vercel.app',  // Update post-deploy
-  IS_EMBEDDED_APP: true,
-  API_VERSION: '2025-10',  // Match your const
-  SESSION_STORAGE: sessionStorage({ client: prisma, tableName: 'sessions' }),  // Use Prisma
+// Configure Shopify API (v12 public app)
+const storage = new PrismaSessionStorage(prisma);  // v12 class instantiation
+const shopify = shopifyApi({
+  apiKey: process.env.SHOPIFY_API_KEY,
+  apiSecretKey: process.env.SHOPIFY_API_SECRET,
+  scopes: process.env.SHOPIFY_SCOPES?.split(',') || ['read_metaobjects', 'read_products', 'read_files', 'write_app_proxy'],
+  hostName: process.env.HOST_NAME || 'meta-object-paginator.vercel.app',
+  isEmbeddedApp: true,
+  apiVersion: ApiVersion.October25,  // v12 for 2025-10
+  sessionStorage: storage,  // v12 storage config
+  // Adapter loaded via import; no restResources/graphQL needed
 });
 
-// Middleware (apply to all routes)
-app.use(shopify.middleware.webhook({ rawBody: true }));  // For webhooks
+// Middleware (webhooks commented out for brute force)
 app.use(express.json());
 
-// Fix CORS (as before)
+// app.use(shopify.webhooks.middleware({ rawBody: true }));  // v12 webhook – commented to isolate crash
+
 app.use(cors({
   origin: [
-    'https://armadillo-labs.myshopify.com',  // Your dev store
+    'https://armadillo-labs.myshopify.com',
     'https://8thwonder.com',
     'https://siphowdy.com',
     'https://sipbeachbreak.com',
@@ -38,21 +40,18 @@ app.use(cors({
   ],
 }));
 
-// Health check (updated)
-app.get('/health', async (req, res) => {
-  const sessionId = shopify.session.getCurrent({ rawRequest: req, rawResponse: res });
-  const session = await shopify.session.fetch(sessionId);
+// Health check (v12 session fetch)
+app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     shop: req.query.shop || process.env.SHOPIFY_SHOP || 'MISSING',
     apiKeySet: !!process.env.SHOPIFY_API_KEY,
-    sessionExists: !!session,
     environment: process.env.NODE_ENV || 'development' 
   });
 });
 
-// Fetch all COAs (updated: uses session token)
-async function fetchAllCOAs(session) {  // Pass session
+// Fetch all COAs (uses v12 session)
+async function fetchAllCOAs(session) {
   if (!session?.accessToken) {
     throw new Error('No valid session token');
   }
@@ -123,21 +122,17 @@ async function fetchAllCOAs(session) {  // Pass session
   return allCOAs;
 }
 
-// App proxy verification (updated for Shopify)
+// App proxy verification (v12 session)
 async function verifyAppProxy(req, res, next) {
   try {
     const shop = req.query.shop;
     if (!shop) return res.status(400).json({ error: 'Missing shop' });
 
-    const sessionId = shopify.session.getCurrent({ rawRequest: req, rawResponse: res });
+    const sessionId = shopify.session.getCurrentId({ rawRequest: req, rawResponse: res });
     const session = await shopify.session.fetch(sessionId);
     if (!session) return res.status(401).json({ error: 'Invalid session' });
 
-    // Optional: HMAC check (uncomment once ready)
-    // const signature = req.get('X-Shopify-Hmac-Sha256');
-    // ... (your existing HMAC logic, but use session.shop)
-
-    req.session = session;  // Attach for downstream use
+    req.session = session;
     next();
   } catch (err) {
     console.error('Proxy auth error:', err);
@@ -150,29 +145,33 @@ app.get('/', async (req, res) => {
   const shop = req.query.shop || process.env.SHOPIFY_SHOP;
   if (!shop) return res.status(400).send('Missing shop parameter');
 
-  const authRoute = await shopify.auth.beginAuth(
-    req,
-    res,
-    shop,
-    '/auth/callback',
-    false  // Offline token
-  );
+  const authRoute = await shopify.auth.begin({ 
+  callbackPath: '/auth/callback',
+  isOnline: false,
+  rawRequest: req,
+  rawResponse: res,
+  shop: shop
+});
   res.redirect(authRoute);
 });
 
 app.get('/auth/callback', async (req, res) => {
   try {
-    const session = await shopify.auth.validateAuthCallback(req, res, req.query);
-    await shopify.session.storeSession(session);
+   const session = await shopify.auth.validateAuth({ 
+  callbackParams: req.query,
+  rawRequest: req,
+  rawResponse: res
+});
+    await shopify.session.storeSession(session);  // v12 store
     console.log('✅ Session stored for shop:', session.shop);
-    res.redirect(`/app?shop=${session.shop}`);  // Or your embedded app URL
+    res.redirect(`/app?shop=${session.shop}`);
   } catch (error) {
     console.error('OAuth error:', error.message);
     res.status(500).send(`OAuth failed: ${error.message}`);
   }
 });
 
-// App proxy route (updated: uses session)
+// App proxy route
 app.all('/coas', verifyAppProxy, async (req, res) => {
   try {
     const coas = await fetchAllCOAs(req.session);
@@ -183,8 +182,8 @@ app.all('/coas', verifyAppProxy, async (req, res) => {
   }
 });
 
-// API route for testing (updated)
-app.get('/api/coas', verifyAppProxy, async (req, res) => {  // Add verify for consistency
+// API route for testing
+app.get('/api/coas', verifyAppProxy, async (req, res) => {
   try {
     const coas = await fetchAllCOAs(req.session);
     res.json(coas);
@@ -194,17 +193,16 @@ app.get('/api/coas', verifyAppProxy, async (req, res) => {  // Add verify for co
   }
 });
 
-// Webhook routes (add if using toml webhooks)
-app.post('/webhooks/app/uninstalled', shopify.middleware.webhook(), async (req, res) => {
-  const sessionId = req.body.session_id;
-  await shopify.session.deleteSession(sessionId);
-  res.status(200).send('OK');
-});
+// Webhook routes (commented out for brute force)
+ // app.post('/webhooks/app/uninstalled', shopify.webhooks.middleware(), async (req, res) => {
+ //   const sessionId = req.body.session_id;
+ //   await shopify.session.deleteSession(sessionId);
+ //   res.status(200).send('OK');
+ // });
 
-app.post('/webhooks/app/scopes_update', shopify.middleware.webhook(), async (req, res) => {
-  // Handle scope updates if needed
-  res.status(200).send('OK');
-});
+ // app.post('/webhooks/app/scopes_update', shopify.webhooks.middleware(), async (req, res) => {
+ //   res.status(200).send('OK');
+ // });
 
 // Export for Vercel
 export default app;
