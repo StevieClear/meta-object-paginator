@@ -145,25 +145,24 @@ app.get('/', async (req, res) => {
   if (!shop) return res.status(400).send('Missing shop parameter');
 
   const authRoute = await shopify.auth.begin({ 
-  callbackPath: '/auth/callback',
-  isOnline: false,
-  rawRequest: req,
-  rawResponse: res,
-  shop: shop
-});
-  res.redirect(authRoute);
+    callbackPath: '/auth/callback',
+    isOnline: false,
+    rawRequest: req,
+    rawResponse: res,
+    shop: shop
+  });
 });
 
 app.get('/auth/callback', async (req, res) => {
   try {
-   const session = await shopify.auth.validateAuth({ 
+  const session = await shopify.auth.validateAuth({ 
   callbackParams: req.query,
   rawRequest: req,
   rawResponse: res
 });
-    await shopify.session.storeSession(session);  // v12 store
-    console.log('✅ Session stored for shop:', session.shop);
-    res.redirect(`/app?shop=${session.shop}`);
+await shopify.session.storeSession(session);
+console.log('✅ Session stored for shop:', session.shop);
+// No res.redirect - validateAuth handles it
   } catch (error) {
     console.error('OAuth error:', error.message);
     res.status(500).send(`OAuth failed: ${error.message}`);
