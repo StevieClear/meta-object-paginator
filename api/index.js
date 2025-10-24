@@ -4,8 +4,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { shopifyApi, ApiVersion } from '@shopify/shopify-api';
-import { PrismaSessionStorage } from '@shopify/shopify-app-session-storage-prisma';  // v12 named import
-// import '@shopify/shopify-api/adapters/node';  // v12 side-effect import for Node adapter
+import { PrismaSessionStorage } from '@shopify/shopify-app-session-storage-prisma';
+import '@shopify/shopify-api/adapters/node';  // v12 side-effect (correct)// import '@shopify/shopify-api/adapters/node';  // v12 side-effect import for Node adapter
 
 dotenv.config();
 
@@ -13,16 +13,15 @@ const app = express();
 const prisma = new PrismaClient();
 
 // Configure Shopify API (v12 public app)
-const storage = new PrismaSessionStorage(prisma);  // v12 class instantiation
+const storage = new PrismaSessionStorage(prisma);
 const shopify = shopifyApi({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET,
   scopes: process.env.SHOPIFY_SCOPES?.split(',') || ['read_metaobjects', 'read_products', 'read_files', 'write_app_proxy'],
   hostName: process.env.HOST_NAME || 'meta-object-paginator.vercel.app',
   isEmbeddedApp: true,
-  apiVersion: ApiVersion.October25,  // v12 for 2025-10
-  sessionStorage: storage,  // v12 storage config
-  // Adapter loaded via import; no restResources/graphQL needed
+  apiVersion: ApiVersion.October25,
+  sessionStorage: storage,
 });
 
 // Middleware (webhooks commented out for brute force)
@@ -206,3 +205,9 @@ app.get('/api/coas', verifyAppProxy, async (req, res) => {
 
 // Export for Vercel
 export default app;
+
+// Local Node listen (comment out for Vercel)
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`🚀 Backend LIVE on http://localhost:${port}`);
+});
