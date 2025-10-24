@@ -21,7 +21,7 @@
   },
   "type": "module",
   "engines": {
-    "node": "22.20.0"
+    "node": "22.x"
   },
   "dependencies": {
     "@prisma/client": "^6.16.3",
