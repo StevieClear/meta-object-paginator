@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { shopifyApi, ApiVersion } from '@shopify/shopify-api';
 import { PrismaSessionStorage } from '@shopify/shopify-app-session-storage-prisma';
-import '@shopify/shopify-api/adapters/node';  // v12 side-effect (correct)// import '@shopify/shopify-api/adapters/node';  // v12 side-effect import for Node adapter
+import '@shopify/shopify-api/adapters/node';  // v12 side-effect import for Node adapter
 
 dotenv.config();
 
@@ -40,13 +40,20 @@ app.use(cors({
 }));
 
 // Health check (v12 session fetch)
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    shop: req.query.shop || process.env.SHOPIFY_SHOP || 'MISSING',
-    apiKeySet: !!process.env.SHOPIFY_API_KEY,
-    environment: process.env.NODE_ENV || 'development' 
-  });
+app.get('/health', async (req, res) => {
+  try {
+    const sessionId = shopify.session.getCurrentId({ rawRequest: req, rawResponse: res });
+    const session = await shopify.session.loadSession(sessionId);  // v12 correct
+    res.json({ 
+      status: 'OK', 
+      shop: req.query.shop || process.env.SHOPIFY_SHOP || 'MISSING',
+      apiKeySet: !!process.env.SHOPIFY_API_KEY,
+      sessionExists: !!session,
+      environment: process.env.NODE_ENV || 'development' 
+    });
+  } catch (err) {
+    res.json({ status: 'ERROR', message: err.message });
+  }
 });
 
 // Fetch all COAs (uses v12 session)
@@ -128,7 +135,7 @@ async function verifyAppProxy(req, res, next) {
     if (!shop) return res.status(400).json({ error: 'Missing shop' });
 
     const sessionId = shopify.session.getCurrentId({ rawRequest: req, rawResponse: res });
-    const session = await shopify.session.fetch(sessionId);
+    const session = await shopify.session.loadSession(sessionId);  // v12 correct
     if (!session) return res.status(401).json({ error: 'Invalid session' });
 
     req.session = session;
@@ -144,25 +151,26 @@ app.get('/', async (req, res) => {
   const shop = req.query.shop || process.env.SHOPIFY_SHOP;
   if (!shop) return res.status(400).send('Missing shop parameter');
 
-  const authRoute = await shopify.auth.begin({ 
+  await shopify.auth.begin({ 
     callbackPath: '/auth/callback',
     isOnline: false,
     rawRequest: req,
     rawResponse: res,
     shop: shop
   });
+  // begin handles the redirect - nothing else needed
 });
 
 app.get('/auth/callback', async (req, res) => {
   try {
-  const session = await shopify.auth.validateAuth({ 
-  callbackParams: req.query,
-  rawRequest: req,
-  rawResponse: res
-});
-await shopify.session.storeSession(session);
-console.log('✅ Session stored for shop:', session.shop);
-// No res.redirect - validateAuth handles it
+    const session = await shopify.auth.validateAuth({ 
+      callbackParams: req.query,
+      rawRequest: req,
+      rawResponse: res
+    });
+    await shopify.session.storeSession(session);
+    console.log('✅ Session stored for shop:', session.shop);
+    // No res.redirect - validateAuth handles it
   } catch (error) {
     console.error('OAuth error:', error.message);
     res.status(500).send(`OAuth failed: ${error.message}`);
