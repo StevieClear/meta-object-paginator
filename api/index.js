@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { shopifyApi, ApiVersion } from '@shopify/shopify-api';
 import { PrismaSessionStorage } from '@shopify/shopify-app-session-storage-prisma';  // v12 named import
-import '@shopify/shopify-api/adapters/node';  // v12 side-effect import for Node adapter
+// import '@shopify/shopify-api/adapters/node';  // v12 side-effect import for Node adapter
 
 dotenv.config();
 
