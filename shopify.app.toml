@@ -21,4 +21,4 @@ api_version = "2025-10"  # Match server.js API_VERSION
 scopes = "read_metaobjects,read_products,read_files,write_app_proxy"  # Add these for COA fetch/proxy
 
 [auth]
-redirect_urls = [ "https://meta-object-paginator.vercel.app/auth/callback" ]  # Match server.js route
+redirect_urls = [ "https://mary-pushing-chuck-effective.trycloudflare.com/auth/callback" ]  # Match server.js route
