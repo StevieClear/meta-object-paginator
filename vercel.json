@@ -29,7 +29,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "app/entry.server.jsx"  // React Router frontend (if exists; otherwise api/index.js)
+      "dest": "app/entry.server.jsx"
     }
   ]
 }
