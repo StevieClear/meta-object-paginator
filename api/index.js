@@ -182,8 +182,7 @@ app.get('/auth/callback', async (req, res) => {
 
     const { session } = callbackResponse;
     if (session) {
-      // Persist session (callback stores it, but keeping for safety)
-      await shopify.session.storeSession(session);
+      // Session is persisted by the OAuth callback using configured sessionStorage
       console.log('✅ Session stored for shop:', session.shop);
       return res.redirect(`/app?shop=${session.shop}`);
     }
