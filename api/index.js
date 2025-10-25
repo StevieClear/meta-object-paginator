@@ -14,6 +14,49 @@ const app = express();
 app.set('trust proxy', 1);
 const prisma = new PrismaClient();
 
+// Ensure Prisma sessions table exists (robust on serverless cold starts)
+async function ensureSessionsTable() {
+  try {
+    // Postgres-specific existence check
+    const exists = await prisma.$queryRawUnsafe(
+      "SELECT to_regclass('public.sessions') AS oid"
+    );
+    const tableMissing = Array.isArray(exists) && exists[0] && exists[0].oid == null;
+    if (tableMissing) {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "sessions" (
+          "id" TEXT PRIMARY KEY,
+          "shop" TEXT NOT NULL,
+          "state" TEXT,
+          "isOnline" BOOLEAN NOT NULL DEFAULT FALSE,
+          "scope" TEXT,
+          "expires" TIMESTAMP(3),
+          "accessToken" TEXT NOT NULL,
+          "userId" BIGINT,
+          "firstName" TEXT,
+          "lastName" TEXT,
+          "email" TEXT,
+          "accountOwner" BOOLEAN NOT NULL DEFAULT FALSE,
+          "locale" TEXT,
+          "collaborator" BOOLEAN NOT NULL DEFAULT FALSE,
+          "emailVerified" BOOLEAN NOT NULL DEFAULT FALSE,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL
+        );
+      `);
+      await prisma.$executeRawUnsafe(
+        'CREATE UNIQUE INDEX IF NOT EXISTS "sessions_shop_key" ON "sessions"("shop")'
+      );
+      console.log('Created sessions table in database');
+    }
+  } catch (err) {
+    console.warn('Warning: ensureSessionsTable failed:', err?.message);
+  }
+}
+
+// Fire and forget; safe if table already exists
+void ensureSessionsTable();
+
 // Configure Shopify API (v12 public app)
 const storage = new PrismaSessionStorage(prisma);
 const shopify = shopifyApi({
