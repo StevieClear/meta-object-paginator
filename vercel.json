@@ -1,8 +1,6 @@
 {
   "version": 2,
- "buildCommand": "npx prisma generate",
   "builds": [
-    
     {
       "src": "api/index.js",
       "use": "@vercel/node"
@@ -26,8 +24,12 @@
       "dest": "api/index.js"
     },
     {
-      "src": "/(.*)",
+      "src": "/webhooks/(.*)",
       "dest": "api/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "app/entry.server.jsx"  // React Router frontend (if exists; otherwise api/index.js)
     }
   ]
 }
