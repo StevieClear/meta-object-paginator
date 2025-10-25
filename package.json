@@ -2,7 +2,7 @@
   "name": "meta-object-paginator",
   "private": true,
   "scripts": {
-    "build": "echo 'Skipping frontend build for backend deploy' && npx prisma generate",
+    "build": "npx prisma generate && npx prisma migrate deploy",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
