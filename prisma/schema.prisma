@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"  // Static for local; swap to "postgresql" for prod deploy
+  provider = "sqlite"  // Will be overridden by environment
   url      = env("DATABASE_URL")
 }
 
