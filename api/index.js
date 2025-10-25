@@ -161,16 +161,13 @@ app.get('/', async (req, res) => {
   // begin handles the redirect - nothing else needed
 });
 
+
 app.get('/auth/callback', async (req, res) => {
   try {
-    const session = await shopify.auth.validateAuth({ 
-      callbackParams: req.query,
-      rawRequest: req,
-      rawResponse: res
-    });
+    const session = await shopify.auth.validateAuthCallback(req, res, req.query);
     await shopify.session.storeSession(session);
     console.log('✅ Session stored for shop:', session.shop);
-    // No res.redirect - validateAuth handles it
+    res.redirect(`/app?shop=${session.shop}`);
   } catch (error) {
     console.error('OAuth error:', error.message);
     res.status(500).send(`OAuth failed: ${error.message}`);
