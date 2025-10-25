@@ -10,6 +10,8 @@ import '@shopify/shopify-api/adapters/node';  // v12 side-effect import for Node
 dotenv.config();
 
 const app = express();
+// Ensure correct protocol awareness behind proxies (e.g., Vercel) for cookies
+app.set('trust proxy', 1);
 const prisma = new PrismaClient();
 
 // Configure Shopify API (v12 public app)
@@ -148,18 +150,25 @@ async function verifyAppProxy(req, res, next) {
 }
 
 // Routes
+// Root route: redirect to /auth to start OAuth
 app.get('/', async (req, res) => {
   const shop = req.query.shop || process.env.SHOPIFY_SHOP;
   if (!shop) return res.status(400).send('Missing shop parameter');
+  return res.redirect(`/auth?shop=${encodeURIComponent(shop)}`);
+});
 
-  await shopify.auth.begin({ 
+// Dedicated OAuth begin route
+app.get('/auth', async (req, res) => {
+  const shop = req.query.shop;
+  if (!shop) return res.status(400).send('Missing shop parameter');
+  await shopify.auth.begin({
     callbackPath: '/auth/callback',
     isOnline: false,
     rawRequest: req,
     rawResponse: res,
-    shop: shop
+    shop,
   });
-  // begin handles the redirect - nothing else needed
+  // begin handles the redirect
 });
 
 
@@ -181,9 +190,21 @@ app.get('/auth/callback', async (req, res) => {
 
     throw new Error('No session returned from OAuth callback');
   } catch (error) {
+    const shop = req.query.shop;
+    // Common issue on some hosts/browsers: missing OAuth cookie; retry begin flow
+    if (shop && typeof error?.message === 'string' && /oauth cookie/i.test(error.message)) {
+      console.warn('OAuth cookie missing. Restarting OAuth flow for shop:', shop);
+      return res.redirect(`/auth?shop=${encodeURIComponent(shop)}`);
+    }
     console.error('OAuth error:', error.message);
     res.status(500).send(`OAuth failed: ${error.message}`);
   }
+});
+
+// Simple app landing so the post-OAuth redirect has a target
+app.get('/app', (req, res) => {
+  const shop = req.query.shop;
+  res.status(200).send(`App installed. Shop: ${shop || 'unknown'}`);
 });
 
 // App proxy route
