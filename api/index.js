@@ -18,7 +18,8 @@ const shopify = shopifyApi({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET,
   scopes: process.env.SHOPIFY_SCOPES?.split(',') || ['read_metaobjects', 'read_products', 'read_files', 'write_app_proxy'],
-  hostName: process.env.HOST_NAME || 'meta-object-paginator.vercel.app',
+  // Vercel sets VERCEL_URL (no protocol). Prefer HOST_NAME if explicitly configured.
+  hostName: process.env.HOST_NAME || process.env.VERCEL_URL || 'meta-object-paginator.vercel.app',
   isEmbeddedApp: true,
   apiVersion: ApiVersion.October25,
   sessionStorage: storage,
@@ -164,10 +165,21 @@ app.get('/', async (req, res) => {
 
 app.get('/auth/callback', async (req, res) => {
   try {
-    const session = await shopify.auth.validateAuthCallback(req, res, req.query);
-    await shopify.session.storeSession(session);
-    console.log('✅ Session stored for shop:', session.shop);
-    res.redirect(`/app?shop=${session.shop}`);
+    const callbackResponse = await shopify.auth.callback({
+      isOnline: false,
+      rawRequest: req,
+      rawResponse: res,
+    });
+
+    const { session } = callbackResponse;
+    if (session) {
+      // Persist session (callback stores it, but keeping for safety)
+      await shopify.session.storeSession(session);
+      console.log('✅ Session stored for shop:', session.shop);
+      return res.redirect(`/app?shop=${session.shop}`);
+    }
+
+    throw new Error('No session returned from OAuth callback');
   } catch (error) {
     console.error('OAuth error:', error.message);
     res.status(500).send(`OAuth failed: ${error.message}`);
@@ -210,8 +222,10 @@ app.get('/api/coas', verifyAppProxy, async (req, res) => {
 // Export for Vercel
 export default app;
 
-// Local Node listen (comment out for Vercel)
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`🚀 Backend LIVE on http://localhost:${port}`);
-});
+// Local Node listen (disabled on Vercel)
+if (!process.env.VERCEL) {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`🚀 Backend LIVE on http://localhost:${port}`);
+  });
+}
