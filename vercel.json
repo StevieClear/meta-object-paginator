@@ -29,7 +29,8 @@
     },
     {
       "src": "/(.*)",
-      "dest": "app/entry.server.jsx"
+      "dest": "api/index.js"
     }
+    
   ]
 }
