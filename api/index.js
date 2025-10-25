@@ -45,8 +45,8 @@ app.use(cors({
 // Health check (v12 session fetch)
 app.get('/health', async (req, res) => {
   try {
-    const sessionId = shopify.session.getCurrentId({ rawRequest: req, rawResponse: res, isOnline: false });
-    const session = await shopify.session.findSession(sessionId);
+    const sessionId = shopify.session.getCurrentId({ rawRequest: req, rawResponse: res });
+    const session = await storage.loadSession(sessionId);
     res.json({ 
       status: 'OK', 
       shop: req.query.shop || process.env.SHOPIFY_SHOP || 'MISSING',
@@ -137,8 +137,8 @@ async function verifyAppProxy(req, res, next) {
     const shop = req.query.shop;
     if (!shop) return res.status(400).json({ error: 'Missing shop' });
 
-    const sessionId = shopify.session.getCurrentId({ rawRequest: req, rawResponse: res, isOnline: false });
-    const session = await shopify.session.findSession(sessionId);
+    const sessionId = shopify.session.getCurrentId({ rawRequest: req, rawResponse: res });
+    const session = await storage.loadSession(sessionId);
     if (!session) return res.status(401).json({ error: 'Invalid session' });
 
     req.session = session;
